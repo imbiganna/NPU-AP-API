@@ -1,0 +1,6 @@
+waitress==2.0.0
+requests==2.25.0
+lxml==4.5.2
+Flask_JWT_Extended==4.2.3
+Flask==1.1.2
+beautifulsoup4==4.9.3
