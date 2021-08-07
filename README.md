@@ -11,6 +11,13 @@ pip3 install -r requriment.txt
 ```
 
 ## Usage
+``` bash
 python3 server.py
+```
 
+## Using Docker-compose
 
+``` bash
+docker pull imbiganna/npuapi
+sudo docker run -d --restart=always --network host --name npuapi imbiganna/npuapi:latest
+```
