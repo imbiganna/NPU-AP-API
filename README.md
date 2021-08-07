@@ -18,6 +18,6 @@ python3 server.py
 ## Using Docker-compose
 
 ``` bash
-docker pull imbiganna/npuapi
-sudo docker run -d --restart=always --network host --name npuapi imbiganna/npuapi:latest
+docker pull imbiganna/npuapi:latest
+sudo docker run -d --restart=always -p 3000:3000 --name npuapi imbiganna/npuapi:latest
 ```
