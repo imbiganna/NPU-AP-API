@@ -1,4 +1,4 @@
-# NPU_API_Ver1.0.0
+# NPU-AP-API
 國立澎湖科技大學 校務系統 非官方API
 
 ## Requirement
