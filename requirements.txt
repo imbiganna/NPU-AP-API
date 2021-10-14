@@ -4,3 +4,4 @@ lxml==4.5.2
 Flask_JWT_Extended==4.2.3
 Flask==1.1.2
 beautifulsoup4==4.9.3
+flask_cors==3.0.10

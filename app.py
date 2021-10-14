@@ -1,10 +1,13 @@
 from flask import Flask,jsonify,request,render_template
 from flask_jwt_extended import *
+from flask_cors import CORS
+
 import api
 import datetime
 
 jwt = JWTManager()
 app = Flask(__name__)
+CORS(app)
 app.config['JWT_SECRET_KEY'] = 'biganna326'
 jwt.init_app(app)
 app.config['JSON_AS_ASCII'] = False
@@ -64,14 +67,31 @@ def getMyCourse():
     myCourse = api.getCourse(myCookie)
     return jsonify(myCourse)
 
+@app.route('/api/getGreaduate',methods=['POST','GET'])
+@jwt_required()
+def getMyGread():
+    myCookie = get_jwt_identity()['cookie']
+    numberOf = request.values.get('numberOf')
+    myGread = api.getGreaduate(myCookie,numberOf)
+    return jsonify(myGread)
+
+
 @app.route("/api/status",methods=['GET'])
 def checkStatus():
     return jsonify(api.checkStatus())
 
 @app.route("/api/newsList",methods=['GET'])
 def getNews():
+    print(request.remote_addr + "-LOGIN AND GET NEWS!!")
     return jsonify(api.newsList())
+
+@app.route("/test/getCList",methods=['get'])
+@jwt_required()
+def getCList():
+    myCookie = get_jwt_identity()['cookie']
+    getList = api.requestLeaveCanList(myCookie)
+    return getList
 
 @app.route("/api/ckeckVersion", methods=['GET'])
 def getVersion():
-    return jsonify({"iOS" : "1.00" , "URL" : "https://www.google.com"})
+    return jsonify({"iOS" : "1.21" , "URL" : "https://apps.apple.com/tw/app/tw/id1580528288"})

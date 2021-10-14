@@ -7,13 +7,13 @@ headers = {'User-Agent': 'User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_1
 def login(uid,pwd):
 
     mySession:requests = requests.session()
-    mySession.get("https://as2.npu.edu.tw/npu/index.html")
+    mySession.get("https://as1.npu.edu.tw/npu/index.html")
     myLoginPayload = {
         "uid": uid,
         "pwd": pwd
     }
 
-    loginSystem = mySession.post("https://as2.npu.edu.tw/npu/perchk.jsp", data=myLoginPayload, timeout=5,headers=headers)
+    loginSystem = mySession.post("https://as1.npu.edu.tw/npu/perchk.jsp", data=myLoginPayload, timeout=5,headers=headers)
     if loginSystem.text.find("不正確") > 0 :
         return {"error" : '帳號密碼錯誤'}
 
@@ -22,15 +22,21 @@ def login(uid,pwd):
     infoEnd = soup.find('window.parent.document.getElementById("Menufrm").cols = "215,*";')
     myStr = soup[infoStart:infoEnd]
     infoString = BeautifulSoup(myStr, 'html.parser').find_all('span')
+    stdType = "Day"
+
 
     loginCookie = mySession.cookies.get_dict()
+
+    if infoString[1].text.find("進四技") >= 0:
+        stdType = "Night"
 
     returnPayload = {
         "cookie" : loginCookie,
         "stdid" : uid,
         "grade" : infoString[0].text,
         "name"  : infoString[2].text,
-        "myClass" : infoString[1].text
+        "myClass" : infoString[1].text,
+        "type" : stdType
     }   
 
     return returnPayload
@@ -39,13 +45,15 @@ def login(uid,pwd):
 def getScore(cookie) :
     mySession = requests.session()
     data = {
-        "yms" : "109,1",
-        "arg01" : "109",
-        "arg02" : "2"
+        "yms" : "110,1",
+        "arg01" : "110",
+        "arg02" : "1"
     }
-    get = mySession.post("https://as2.npu.edu.tw/npu/ag_pro/ag008.jsp",data = data, timeout=5 ,cookies = cookie,headers=headers)
+    get = mySession.post("https://as1.npu.edu.tw/npu/ag_pro/ag008.jsp",data = data, timeout=5 ,cookies = cookie,headers=headers)
     if get.text.find('教學評量') > 0:
         return {"error" : "未填寫教學評量"}
+    if get.text.find('目前尚無資料') > 0:
+        return {"error" : "查無成績資料"}
 
     soup = BeautifulSoup(get.text, 'html.parser')
     rowsa = soup.find_all('td')
@@ -80,11 +88,11 @@ def getScore(cookie) :
 def getReward(cookie):
     mySession = requests.session()
     data = {
-        "yms" : "109,2",
-        "arg01" : "109",
-        "arg02" : "2"
+        "yms" : "110,1",
+        "arg01" : "110",
+        "arg02" : "1"
     }
-    get = mySession.post("https://as2.npu.edu.tw/npu/ak_pro/ak010.jsp",data = data, timeout=5 ,cookies = cookie,headers=headers)
+    get = mySession.post("https://as1.npu.edu.tw/npu/ak_pro/ak010.jsp",data = data, timeout=5 ,cookies = cookie,headers=headers)
     soup = BeautifulSoup(get.text, 'html.parser')
     rowsa = soup.find_all('td')
     if rowsa[22].text == '\xa0':
@@ -118,9 +126,9 @@ def getReward(cookie):
 def getNoShow(cookie):
     mySession = requests.session()
     data = {
-        "yms" : "109,2",
-        "arg01" : "109",
-        "arg02" : "2"
+        "yms" : "110,1",
+        "arg01" : "110",
+        "arg02" : "1"
     }
     get = mySession.post("https://as1.npu.edu.tw/npu/ak_pro/ak002_01.jsp",data = data, timeout=5 ,cookies = cookie,headers=headers)
     if get.text.find('查無') > 0:
@@ -165,17 +173,21 @@ def getNoShow(cookie):
 
 
 def getCourse(cookie) :
-
     timetable = ["No1","No2","No3","No4","No5","No6","No7","No8","No9","No10","No11","No12","No13","No14"]
+    timeDigit = {"No1":"1","No2":"2","No3":"3","No4":"4","No5":"5","No6":"6","No7":"7","No8":"8","No9":"9","No10":"10","No11":"11","No12":"12","No13":"13","No14":"14"}
     week = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
-
+    weekChinese = {"Monday":"一","Tuesday":"二","Wednesday":"三","Thursday":"四","Friday":"五","Saturday":"六","Sunday":"日"}
+    tmpCourseList = {}
+    tmpRoomList = {}
     mySession = requests.session()
     data = {
-        "yms" : "109,1",
-        "arg01" : "109",
-        "arg02" : "2"
+        "yms" : "110,1",
+        "arg01" : "110",
+        "arg02" : "1"
     }
     get = mySession.post("https://as1.npu.edu.tw/npu/ag_pro/ag001.jsp",data = data, timeout=5 ,cookies = cookie,headers=headers)
+    if get.text.find('查無') > 0:
+        return {"error" : "查無課表"}
 
     soup = BeautifulSoup(get.text, 'html.parser')
     rowsa = soup.find_all('td')
@@ -184,7 +196,11 @@ def getCourse(cookie) :
         "value" : [
 
         ],
-        "status": "Seccuss"
+        "status": "Seccuss",
+        "haveSatDay" : "false",
+        "timeList" : [
+
+        ]
     }
 
     i = 13
@@ -195,7 +211,6 @@ def getCourse(cookie) :
         }
         for weekName in week:
             i+=1
-
             courseNameFirst = str(rowsa[i]).find('title')+13
             myString = str(rowsa[i])[courseNameFirst::]
             endCourseString = myString.find('</a')
@@ -213,23 +228,40 @@ def getCourse(cookie) :
             endRoomID = teacherNameStart.find('td')-3
             roomName = teacherNameStart[startRoomID:endRoomID]
 
+            if courseName in tmpCourseList:
+                tmpIndex = tmpCourseList[courseName].find(weekChinese[weekName])
+                if tmpIndex <= 0 and tmpCourseList[courseName][0] != weekChinese[weekName]:
+                    tmpCourseList[courseName] += "%"+ weekChinese[weekName] + timeDigit[time]
+            else:
+                tmpCourseList[courseName] = weekChinese[weekName] + timeDigit[time]
+            tmpRoomList[courseName] = roomName
             tempCourse = {
                 "courseName" : courseName,
                 "teacher"   : teacherName,
-                "room"      : roomName
+                "room"      : roomName,
             }
+            if weekName == "Saturday" and courseName != " ":
+                courseJson["haveSatDay"] = "True"
             tempWeek[time][weekName]=tempCourse
         i+=1
         courseJson["value"].append(tempWeek)
-
+    del tmpCourseList[" "]
+    for key in tmpCourseList:
+        tmp = {"courseName" : key,
+                "courseTime" : tmpCourseList[key],
+                "room"       : tmpRoomList[key]
+        }
+        if key.find("*") == 0:
+            tmp["courseName"] = key[1::]
+        courseJson["timeList"].append(tmp)
     return courseJson
 
 def checkStatus():
-    request = requests.get('http://as2.npu.edu.tw/npu')
+    request = requests.get('http://as1.npu.edu.tw/npu')
     if request.status_code == 200:
-        return {"as2" : "ON"}
+        return {"as1" : "ON"}
     else:
-       return {"as2" : "DOWN"}
+       return {"as1" : "DOWN"}
 
 
 def newsList():
@@ -250,6 +282,39 @@ def newsList():
             newsJson.append(tempData)
             i+=4
     return newsJson
+
+def getGreaduate(cookie,numberOfNeed):
+    mySession = requests.session()
+    myKeys = list(cookie.keys())
+    greadURL = {}
+    myHeader = {
+        "Cookie" : myKeys[0] + "=" + cookie[myKeys[0]] + "; " + myKeys[1] +"="+ cookie[myKeys[1]] + "" 
+    }
+    get = mySession.post("https://as1.npu.edu.tw/npu/ag_pro/ag391_"+numberOfNeed+".jsp", timeout=5 ,cookies = cookie,headers=myHeader)
+    soup = BeautifulSoup(get.text, 'html.parser')
+    rowsa = soup.find_all('script')
+    findURL = str(rowsa[1]).find("/pdf_file")
+    findURL = str(rowsa[1])[findURL:-11]
+    if myKeys[0] != "JSESSIONID":
+        greadURL['randID'] = myKeys[0]
+        greadURL['randVal'] = cookie[myKeys[0]]
+    greadURL['JSession'] = cookie['JSESSIONID']
+    greadURL['status'] = "True"
+    greadURL['URL'] = "https://as1.npu.edu.tw/npu/ag_pro" + findURL
+    return greadURL
+
+def requestLeaveCanList(cookie):
+    mySession = requests.session()
+    data = {
+        "sdate" :   "1100924",
+        "edate" :   "1100928"
+    }
+    get = mySession.post("https://as1.npu.edu.tw/npu/ck_pro/ck001_02.jsp",data = data, timeout=5 ,cookies = cookie,headers=headers)
+    if get.text.find("已有請假紀錄"):
+        return {"error" : "already"}
+
+    print(get)
+    return get.text
 
 
 print("API...INITED")
